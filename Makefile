@@ -24,10 +24,6 @@ build/bin2c_bootstrap: build/bin2c.o build/help_dummy.o
 	$(mkbuild)
 	$(link_c)
 
-build/genrandom: build/genrandom.o
-	$(mkbuild)
-	$(link_c)
-
 build/genbytes: build/genbytes.o
 	$(mkbuild)
 	$(link_c)
@@ -40,21 +36,16 @@ build/%.o: src/%.c
 	$(mkbuild)
 	$(compile_c) $< -o $@
 
-.PHONY: install test benchmark clean
+.PHONY: install test bench clean
 
 install: build/bin2c
 	cp $< $(prefix)/bin
 
-test: build/bin2c build/genbytes build/genrandom build/print_myfile.o
+test: build/bin2c build/genbytes build/print_myfile.o
 	bash ./test.sh
 
-bench: build/bin2c build/genrandom
+bench: build/bin2c
 	bash ./benchmark.sh benchmark "benchmark-$(shell date +"%Y-%m-%d-%H:%M:%S").txt"
 
 clean:
 	rm -rf build
-
-build/shader_%.o: shaders/%.glsl
-	bin2c shader_$* < $< \
-		| $(CPP) -P -I "shaders/" \
-		| $(CC) $(CPPFLAGS) $(CFLAGS) -x c -c - -o $@
