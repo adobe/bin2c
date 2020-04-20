@@ -204,21 +204,21 @@ Use bin2c, when
 Alphabetic letters, digits, SPACE, as well as the following symbols are
 exported as is:
 
-  !#%&'()*+,-./:;<=>?[]^_`{|}~
+    !#%&'()*+,-./:;<=>?[]^_`{|}~
 
 The following simple escape sequences are used:
 
-  \a\b\t\v\f\r\"\\
+    \a\b\t\v\f\r\"\\
 
 Newline is encoded as a newline escape code, followed by an actual, escaped
 newline in the source. This improves readability of text. E.g.
 
-  This is the first line\n\
-  This is the second.
+    This is the first line\n\
+    This is the second.
 
 All other characters are encoded as a three letter octal escape code:
 
-  \000\001\002\003
+    \000\001\002\003
 
 This includes the zero terminator, `@`, `$` (which are not permitted
 characters in C89) and `?` to avoid confusion with trigraphs.
