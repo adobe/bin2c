@@ -1,0 +1,34 @@
+NAME
+
+  bin2c - Embed text files in C code.
+
+SYNOPSIS
+
+  (1) bin2c < RAW_FILE > ENCODED
+  (2) bin2c VAR_NAME < RAW_FILE > C_FILE
+  (3) bin2c [-h|--help]
+
+DESCRIPTION
+
+  (1) The first form reads data from stdin and output a string suitable for
+      pasting into a C string.
+  (2) Generates a C file that exports two symbols when compiled:
+      `const char <VAR_NAME>[]` and `const size_t <VAR_NAME>_len`.
+      Len is the length of the original file, excluding the terminating
+      zero character.
+  (3) Display this help
+
+  The format produced by bin2c is suitable for embedding into a C89 source file
+  (if the compiler supports overlong strings).  numbers, alphabetic letters,
+  and some symbols are embedded as is. Double quotes are escaped. Newline is
+  encoded as \n followed by an escaped new line to improve readability.  Single
+  character escape codes (e.g. \t) are encoded as such and all other characters
+  are printed in octal.
+
+  A terminating zero character is added to the file.
+
+  bin2c itself is not unicode-aware (multibyte unicode characters are encoded as
+  multiple, separate symbols). This is because C89 does not actually permit any
+  non ascii characters. This should not deter you from embedding unicode however;
+  the binary data in your executable will contain exactly the same data as the original
+  file, so it will be whatever encoding the original file was.
