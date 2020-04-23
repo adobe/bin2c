@@ -36,7 +36,9 @@ build/%.o: src/%.c
 	$(mkbuild)
 	$(compile_c) $< -o $@
 
-.PHONY: install test bench clean
+# Housekeeping
+
+.PHONY: install clean test bench bench_opt bench_full
 
 install: build/bin2c
 	cp $< $(prefix)/bin
@@ -44,25 +46,36 @@ install: build/bin2c
 clean:
 	rm -rf build
 
+# Testing
+
 test: build/bin2c build/genbytes build/print_myfile.o
 	bash ./test.sh
+
+# Benchmarking
+
+previous_versions = \
+	be5110f32aca3fcaa8a45e738efc27ba310bd6b4:0001_initial \
+	fe09dd180121290f6eddbc2e981cc32295caa668:0002_manual_buffer
+
+previous_version_binaries = $(shell echo "$(previous_versions)" \
+	| tr ' ' '\n' \
+	| awk -F : '{ print("build/previous/" $$2 "/build/bin2c") }')
 
 bench: build/bin2c
 	bash ./benchmark.sh benchmark "benchmark-$(shell date +"%Y-%m-%d-%H:%M:%S").txt"
 
-previous_versions = \
-	build/previous/0001_initial/build/bin2c
-
-bench_full: build/bin2c $(previous_versions)
+bench_full: build/bin2c $(previous_version_binaries)
 	BENCH_PREVIOUS_VERSIONS=1 \
 		bash ./benchmark.sh benchmark "benchmark-full-$(shell date +"%Y-%m-%d-%H:%M:%S").txt"
 
-bench_opt: build/bin2c $(previous_versions)
+bench_opt: build/bin2c $(previous_version_binaries)
 	BENCH_PREVIOUS_VERSIONS=1 BENCH_NO_XXD=1 BENCH_NO_LD=1 \
 		bash ./benchmark.sh benchmark "benchmark-opt-$(shell date +"%Y-%m-%d-%H:%M:%S").txt"
 
-build/previous/0001_initial/build/bin2c:
+build/previous/%/build/bin2c:
+	$(eval prev_revision := $(shell echo "$(previous_versions)" \
+			| tr ' ' '\n' \
+			| awk -F : -v name="$*" '$$2 == name { print($$1) }'))
 	mkdir -p "$(dir $@)/.."
-	git archive be5110f32aca3fcaa8a45e738efc27ba310bd6b4 \
-		| tar -C "$(dir $@)/.." -x
+	git archive "$(prev_revision)" | tar -C "$(dir $@)/.." -x
 	$(MAKE) -C "$(dir $@)/.."
