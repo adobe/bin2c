@@ -14,7 +14,9 @@ just_xxd() {
 # Produce a compilable C source file with bin2c
 # containing the data from stdin
 just_bin2c() {
-  build/bin2c myfile
+  local prefix="$1"
+  test -n "$prefix" || prefix="."
+  "$prefix"/build/bin2c myfile
 }
 
 # Used in the benchmarks to test compilation times.
@@ -63,31 +65,58 @@ benchmark() {
     ##################
     # Benchmark raw processing speed (data -> c source code)
 
+    if test -z "$BENCH_NO_XXD"; then
+      bench xxd \
+        <"$tmp_entropy" just_xxd > "$tmp_xxd"
+    fi
     bench bin2c \
       <"$tmp_entropy" just_bin2c > "$tmp_bin2c"
-    bench xxd \
-      <"$tmp_entropy" just_xxd > "$tmp_xxd"
+
+    local prev
+    if test -n "$BENCH_PREVIOUS_VERSIONS"; then
+      for prev in ./build/previous/*; do
+        bench bin2c-"$(basename "$prev")" \
+          <"$tmp_entropy" just_bin2c "$prev" > "$tmp_bin2c"
+      done
+    fi
 
     ###################
     # Benchmark compilation speed (data -> object file)
 
     # Using ld to produce the object
-    bench compile_ld \
-      ld -r -b binary "$tmp_entropy" -o "$tmp_out"
+    if test -z "$BENCH_NO_LD"; then
+      bench compile_ld \
+        ld -r -b binary "$tmp_entropy" -o "$tmp_out"
+    fi
 
     # Using a C compiler to produce the object
     local CC
     for CC in gcc clang; do
       export CC
 
+      if test -z "$BENCH_NO_XXD"; then
+        bench "xxd_${CC}_baseline" \
+          <"$tmp_xxd" compile_from cat >/dev/null
+      fi
+
       bench "bin2c_${CC}_baseline" \
         <"$tmp_bin2c" compile_from cat >/dev/null
-      bench "xxd_${CC}_baseline" \
-        <"$tmp_xxd" compile_from cat >/dev/null
+
+      if test -z "$BENCH_NO_XXD"; then
+        bench "xxd_${CC}" \
+          <"$tmp_entropy" compile_from just_xxd  >/dev/null
+      fi
+
       bench "bin2c_${CC}" \
         <"$tmp_entropy" compile_from just_bin2c >/dev/null
-      bench "xxd_${CC}" \
-        <"$tmp_entropy" compile_from just_xxd  >/dev/null
+
+
+      if test -n "$BENCH_PREVIOUS_VERSIONS"; then
+        for prev in ./build/previous/*; do
+          bench "bin2c_${CC}_$(basename "$prev")" \
+            <"$tmp_entropy" compile_from just_bin2c "$prev" >/dev/null
+        done
+      fi
     done
   done
 }

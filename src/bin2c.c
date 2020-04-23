@@ -3,35 +3,103 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 #include <locale.h>
+#include <assert.h>
 
-#define BIN2C_IO_ERRCK(v) \
-  if ((v) == EOF) { \
-    fprintf(stderr, "error: %s", strerror(errno)); \
-    abort(); \
+inline size_t b2c_strcpy(char *from, char *to) {
+    char *pt = from;
+    for (; *pt != '\0'; pt++, to++) *to = *pt;
+    return pt - from;
+}
+
+inline size_t bin2c_single(uint8_t chr, char *out) {
+  switch ((char)chr) {
+    case '\a': return b2c_strcpy("\\a", out);
+    case '\b': return b2c_strcpy("\\b", out);
+    case '\t': return b2c_strcpy("\\t", out);
+    case '\n': return b2c_strcpy("\\n\\\n", out);
+    case '\v': return b2c_strcpy("\\v", out);
+    case '\f': return b2c_strcpy("\\f", out);
+    case '\r': return b2c_strcpy("\\r", out);
+    case '\\': return b2c_strcpy("\\\\", out);
+    case '"':  return b2c_strcpy("\\\"", out);
+    default: {} // pass
   }
 
-void bin2c() {
-  for (int inc = getchar(); inc != EOF; inc = getchar()) {
-    switch ((char)inc) {
-      case '\a': BIN2C_IO_ERRCK(fputs("\\a", stdout));     continue;
-      case '\b': BIN2C_IO_ERRCK(fputs("\\b", stdout));     continue;
-      case '\t': BIN2C_IO_ERRCK(fputs("\\t", stdout));     continue;
-      case '\n': BIN2C_IO_ERRCK(fputs("\\n\\\n", stdout)); continue;
-      case '\v': BIN2C_IO_ERRCK(fputs("\\v", stdout));     continue;
-      case '\f': BIN2C_IO_ERRCK(fputs("\\f", stdout));     continue;
-      case '\r': BIN2C_IO_ERRCK(fputs("\\r", stdout));     continue;
-      case '\\': BIN2C_IO_ERRCK(fputs("\\\\", stdout));    continue;
-      case '"':  BIN2C_IO_ERRCK(fputs("\\\"", stdout));    continue;
-      default: {} // pass
-    }
+  if (isprint(chr) && chr != '$' && chr != '@' && chr != '?') {
+    out[0] = chr;
+    return 1;
+  } else {
+    char dst[5];
+    snprintf(dst, sizeof(dst), "\\%.3o", chr);
+    out[0] = dst[0];
+    out[1] = dst[1];
+    out[2] = dst[2];
+    out[3] = dst[3];
+    return 4;
+  }
+}
 
-    if (isprint(inc) && inc != '$' && inc != '@' && inc != '?') {
-      BIN2C_IO_ERRCK(putchar(inc));
-    } else {
-      BIN2C_IO_ERRCK(printf("\\%.3o", inc))
+inline void bin2c(char **in, const char *in_end, char **out, char *out_end) {
+  assert(out_end-*out >= 4);
+  // (hot loop) While data in inbuff & outbuf has 4 free slots
+  // (bin2c needs four free slots)
+  for (; *in < in_end && out_end-*out > 4; (*in)++)
+    *out += bin2c_single(**in, *out);
+}
+
+struct b2c_buf {
+  FILE *stream;
+  // Start pointer, end pointer, fill level
+  char *start, *end, *pt;
+};
+
+inline struct b2c_buf b2c_buf_create(FILE *stream, size_t len) {
+  struct b2c_buf r;
+  r.stream = stream;
+  r.start = r.pt = (char*)malloc(len);
+  r.end = r.start + len;
+  return r;
+}
+
+// fread but directly aborts execution on error when nothing was red.
+// Automatically resets the buffer pointer.
+// Behaviour is undefined if buffer is not entirely empty
+inline size_t b2c_fill(struct b2c_buf *buf) {
+  assert(buf->pt == buf->start || buf->pt == buf->end);
+  size_t red = fread(buf->start, 1, buf->end - buf->start, buf->stream);
+  if (red == 0 && ferror(buf->stream)) {
+    fprintf(stderr, "Error reading data: %s\n", strerror(errno));
+    abort();
+  }
+  buf->pt = buf->end - red;
+  if (buf->pt != buf->start) // read was shorter than buffer
+    memmove(buf->pt, buf->start, red);
+  return red;
+}
+
+// fwrite but directly aborts execution on error or EOF.
+// Automatically resets the buffer pointer.
+void b2c_flush(struct b2c_buf *buf) {
+  size_t cnt = buf->pt - buf->start;
+  if (fwrite(buf->start, 1, cnt, buf->stream) != cnt) {
+    fprintf(stderr, "Error writing data: %s\n", strerror(errno));
+    abort();
+  }
+  buf->pt = buf->start;
+}
+
+void b2c_puts(struct b2c_buf *buf, const char *str) {
+  while (true) {
+    for (; buf->pt < buf->end; buf->pt++, str++) {
+      if (*str == '\0')
+        return;
+      *buf->pt = *str;
     }
+    b2c_flush(buf);
   }
 }
 
@@ -59,18 +127,35 @@ int main(int argc, const char **argv) {
   }
 
   setlocale(LC_ALL, "C");
+  setvbuf(stdin, NULL, _IONBF, 0);
+  setvbuf(stdout, NULL, _IONBF, 0);
 
-  if (var_name != NULL)
-    printf(
-      "#include <stdlib.h>\n"
-      "const char %s[] = \"\\\n", var_name);
+  struct b2c_buf ib = b2c_buf_create(stdin, 8129);
+  struct b2c_buf ob = b2c_buf_create(stdout, 8129);
 
-  bin2c();
+  if (var_name != NULL) {
+    b2c_puts(&ob, "#include <stdlib.h>\n");
+    b2c_puts(&ob, "const char ");
+    b2c_puts(&ob, var_name);
+    b2c_puts(&ob, "[] = \"\\\n");
+  }
 
-  if (var_name != NULL)
-    printf("\";\nconst size_t %s_len = sizeof(%s) - 1;\n", var_name, var_name);
+  while (!feof(stdin) || (ib.pt != ib.start && ib.pt != ib.end)) {
+    if (ib.pt == ib.start || ib.pt == ib.end) b2c_fill(&ib);
+    b2c_flush(&ob);
+    bin2c(&ib.pt, ib.end, &ob.pt, ob.end); // hot loop
+  }
 
-  fflush(stdout);
+  if (var_name != NULL) {
+    b2c_puts(&ob, "\";\n");
+    b2c_puts(&ob, "const size_t ");
+    b2c_puts(&ob, var_name);
+    b2c_puts(&ob, "_len = sizeof(");
+    b2c_puts(&ob, var_name);
+    b2c_puts(&ob, ") - 1;\n");
+  }
+  
+  b2c_flush(&ob);
 
   return 0;
 }
