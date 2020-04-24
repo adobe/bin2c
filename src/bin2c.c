@@ -33,12 +33,10 @@ inline size_t bin2c_single(uint8_t chr, char *out) {
     out[0] = chr;
     return 1;
   } else {
-    char dst[5];
-    snprintf(dst, sizeof(dst), "\\%.3o", chr);
-    out[0] = dst[0];
-    out[1] = dst[1];
-    out[2] = dst[2];
-    out[3] = dst[3];
+    out[0] = '\\'; // octal encode
+    out[1] = (chr >> 6 & 7) + '0';
+    out[2] = (chr >> 3 & 7) + '0';
+    out[3] = (chr >> 0 & 7) + '0';
     return 4;
   }
 }
