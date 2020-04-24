@@ -55,7 +55,9 @@ test: build/bin2c build/genbytes build/print_myfile.o
 
 previous_versions = \
 	be5110f32aca3fcaa8a45e738efc27ba310bd6b4:0001_initial \
-	fe09dd180121290f6eddbc2e981cc32295caa668:0002_manual_buffer
+	fe09dd180121290f6eddbc2e981cc32295caa668:0002_manual_buffer \
+	3c9a344fbd321625f6c0a9c4639bfedbf7092cc7:0003_inline_octal \
+	2441ea27f836d44d7d3a9e2612ada202d080662d:0004_inline_isprint
 
 previous_version_binaries = $(shell echo "$(previous_versions)" \
 	| tr ' ' '\n' \
