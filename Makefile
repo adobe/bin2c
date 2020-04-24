@@ -5,7 +5,7 @@ CFLAGS += -Wall -Wextra -Wpedantic -std=c11
 CPPFLAGS += -I"$(PWD)/src"
 
 define mkbuild
-	mkdir -p "$(dir $@)"
+	@mkdir -p "$(dir $@)"
 endef
 
 define compile_c
@@ -16,15 +16,19 @@ define link_c
 	$(CC) $(LDFLAGS) $^ -o $@
 endef
 
-build/bin2c: build/bin2c.o build/help.o
+build/bin2c: build/bin2c.o build/help.o build/lookuptable.o
 	$(mkbuild)
 	$(link_c)
 
-build/bin2c_bootstrap: build/bin2c.o build/help_dummy.o
+build/bin2c_bootstrap: build/bin2c_bootstrap.o build/help_dummy.o
 	$(mkbuild)
 	$(link_c)
 
 build/genbytes: build/genbytes.o
+	$(mkbuild)
+	$(link_c)
+
+build/genlookup: build/genlookup.o
 	$(mkbuild)
 	$(link_c)
 
@@ -36,9 +40,20 @@ build/%.o: src/%.c
 	$(mkbuild)
 	$(compile_c) $< -o $@
 
+build/genlookup.o build/bin2c_bootstrap.o: CPPFLAGS+=-DBIN2C_BOOTSTRAP=1
+build/genlookup.o build/bin2c_bootstrap.o build/bin2c.o: src/bin2c.h
+build/bin2c_bootstrap.o: src/bin2c.c
+	$(mkbuild)
+	$(compile_c) $< -o $@
+
+build/lookuptable.o: build/bin2c_bootstrap build/genlookup
+	build/genlookup \
+		| build/bin2c_bootstrap bin2c_lookup_table_ \
+		| $(compile_c) - -o $@
+
 # Housekeeping
 
-.PHONY: install clean test bench bench_opt bench_full
+.PHONY: install clean
 
 install: build/bin2c
 	cp $< $(prefix)/bin
@@ -48,10 +63,19 @@ clean:
 
 # Testing
 
-test: build/bin2c build/genbytes build/print_myfile.o
-	bash ./test.sh
+.PHONY: test test_bin2c test_bootstrap
+
+test: test_bin2c test_bootstrap
+
+test_bin2c: build/bin2c build/genbytes build/print_myfile.o
+	bash ./test.sh "$<"
+
+test_bootstrap: build/bin2c_bootstrap build/genbytes build/print_myfile.o
+	bash ./test.sh "$<"
 
 # Benchmarking
+
+.PHONY: bench bench_opt bench_full
 
 previous_versions = \
 	be5110f32aca3fcaa8a45e738efc27ba310bd6b4:0001_initial \

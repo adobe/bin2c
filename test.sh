@@ -71,8 +71,9 @@ test_compare_files() {
 }
 
 test_bin2c() {
-  local name="$1"
-  local inf="$2";
+  local binary="$1"
+  local name="$2"
+  local inf="$3"
 
   local basename="${tmpdir}/${name}"
   local cfile="${basename}.c"
@@ -81,9 +82,9 @@ test_bin2c() {
   local exec="${basename}.elf"
   test -n "$inf" || inf="${basename}"
 
-  echo -n >&2 "Testing bin2c for ${name}..."
+  echo -n >&2 "${binary}: Testing for ${name}..."
 
-  build/bin2c myfile < "$inf" > "$cfile" || true
+  "$binary" myfile < "$inf" > "$cfile" || true
   cc -Wall -Wextra -Wpedantic -std=c89 \
     -Wno-overlength-strings \
     build/print_myfile.o "$cfile" \
@@ -105,18 +106,21 @@ test_bin2c() {
 }
 
 test_main() {
+  local binary="$1"
+  test -n "$binary" || binary=build/bin2c
+
   test_ok="$OK"
 
-  test_bin2c help src/help.txt
-  
-  echo -n >&2 "Checking help.c formatting..."
+  test_bin2c "$binary" help src/help.txt
+
+  echo -n >&2 "${binary}: Checking help.c formatting..."
   test_compare_files "${tmpdir}/help.c" "test/help.txt.c"
 
   build/genbytes > "${tmpdir}/all_bytes"
-  test_bin2c all_bytes
+  test_bin2c "$binary" all_bytes
 
   dd if=/dev/urandom of="${tmpdir}/random" bs=10000000 count=1 2>/dev/null
-  test_bin2c random
+  test_bin2c "$binary" random
 
   test "$test_ok" = "$OK"
 }
@@ -136,7 +140,7 @@ init() {
   mkdir -p "$tmpdir"
   trap test_cleanup EXIT
 
-  test_main
+  test_main "$@"
 }
 
 init "$@"

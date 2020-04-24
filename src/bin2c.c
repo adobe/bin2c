@@ -9,50 +9,7 @@
 #include <locale.h>
 #include <assert.h>
 
-inline size_t b2c_strcpy(char *from, char *to) {
-    char *pt = from;
-    for (; *pt != '\0'; pt++, to++) *to = *pt;
-    return pt - from;
-}
-
-inline size_t bin2c_single(uint8_t chr, char *out) {
-  switch ((char)chr) {
-    case '\a': return b2c_strcpy("\\a", out);
-    case '\b': return b2c_strcpy("\\b", out);
-    case '\t': return b2c_strcpy("\\t", out);
-    case '\n': return b2c_strcpy("\\n\\\n", out);
-    case '\v': return b2c_strcpy("\\v", out);
-    case '\f': return b2c_strcpy("\\f", out);
-    case '\r': return b2c_strcpy("\\r", out);
-    case '\\': return b2c_strcpy("\\\\", out);
-    case '"':  return b2c_strcpy("\\\"", out);
-    case '$':
-    case '@':
-    case '?':
-      goto octal;
-  }
-
-  // isprint, but inline
-  if (chr >= ' ' && chr <= '~') {
-    out[0] = chr;
-    return 1;
-  }
-
-octal:
-  out[0] = '\\'; // octal encode
-  out[1] = (chr >> 6 & 7) + '0';
-  out[2] = (chr >> 3 & 7) + '0';
-  out[3] = (chr >> 0 & 7) + '0';
-  return 4;
-}
-
-inline void bin2c(char **in, const char *in_end, char **out, char *out_end) {
-  assert(out_end-*out >= 4);
-  // (hot loop) While data in inbuff & outbuf has 4 free slots
-  // (bin2c needs four free slots)
-  for (; *in < in_end && out_end-*out > 4; (*in)++)
-    *out += bin2c_single(**in, *out);
-}
+#include "bin2c.h"
 
 struct b2c_buf {
   FILE *stream;
@@ -146,7 +103,7 @@ int main(int argc, const char **argv) {
   while (!feof(stdin) || (ib.pt != ib.start && ib.pt != ib.end)) {
     if (ib.pt == ib.start || ib.pt == ib.end) b2c_fill(&ib);
     b2c_flush(&ob);
-    bin2c(&ib.pt, ib.end, &ob.pt, ob.end); // hot loop
+    bin2c((uint8_t**)&ib.pt, (uint8_t*)ib.end, &ob.pt, ob.end); // hot loop
   }
 
   if (var_name != NULL) {
