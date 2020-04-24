@@ -42,7 +42,7 @@ bench() {
   echo >&2 "$tim"
 
   if test -n "$bench_results_file"; then
-    echo "$impl" "$bench_len" "$tim" >> "$bench_results_file"
+    echo "$impl" "${bench_mb}000000" "$tim" >> "$bench_results_file"
   fi
 }
 
@@ -50,7 +50,7 @@ bench() {
 #
 # SYNOPSIS: bash ./benchmark.sh [benchmark [results_file]]
 benchmark() {
-  bench_len=100000000 # 100MB – Length of random file to encode
+  bench_mb=50
   bench_results_file="$1"
   test -n "$1" || bench_results_file="${tmpdir}/results"
 
@@ -60,7 +60,7 @@ benchmark() {
   local tmp_bin2c="${tmpdir}/dummy_bin2c.c"
 
   while true; do
-    dd if=/dev/urandom of="$tmp_entropy" bs="$bench_len" count=1 2>/dev/null
+    dd if=/dev/urandom of="$tmp_entropy" bs=1000000 count="$bench_mb" 2>/dev/null
 
     ##################
     # Benchmark raw processing speed (data -> c source code)
