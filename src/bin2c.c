@@ -26,19 +26,24 @@ inline size_t bin2c_single(uint8_t chr, char *out) {
     case '\r': return b2c_strcpy("\\r", out);
     case '\\': return b2c_strcpy("\\\\", out);
     case '"':  return b2c_strcpy("\\\"", out);
-    default: {} // pass
+    case '$':
+    case '@':
+    case '?':
+      goto octal;
   }
 
-  if (isprint(chr) && chr != '$' && chr != '@' && chr != '?') {
+  // isprint, but inline
+  if (chr >= ' ' && chr <= '~') {
     out[0] = chr;
     return 1;
-  } else {
-    out[0] = '\\'; // octal encode
-    out[1] = (chr >> 6 & 7) + '0';
-    out[2] = (chr >> 3 & 7) + '0';
-    out[3] = (chr >> 0 & 7) + '0';
-    return 4;
   }
+
+octal:
+  out[0] = '\\'; // octal encode
+  out[1] = (chr >> 6 & 7) + '0';
+  out[2] = (chr >> 3 & 7) + '0';
+  out[3] = (chr >> 0 & 7) + '0';
+  return 4;
 }
 
 inline void bin2c(char **in, const char *in_end, char **out, char *out_end) {
