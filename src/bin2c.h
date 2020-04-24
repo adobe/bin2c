@@ -47,18 +47,15 @@ inline size_t bin2c_single(uint8_t chr, char *out) {
   /// Each code is between one and 4 bytes
   extern const char bin2c_lookup_table_[];
 
-  const uint32_t r = ((uint32_t*)bin2c_lookup_table_)[(uint8_t)chr];
-  ((uint32_t*)out)[0] = r;
-
-#if defined(__ORDER_LITTLE_ENDIAN__) && defined(__GNUC__) && defined(BIN2C_OPTIMIZE)
-  // Branchless implementation of a size check here, based (usually)
-  // BSR or LZCNT instruction. Depends on the endianess & on gcc
-  return (32 - __builtin_clz(r) + 7) / 8;
-#else
-  return out[1] == 0 ? 1
-       : out[2] == 0 ? 2
-       : out[3] == 0 ? 3 : 4;
-#endif
+  // NOTE: The length is in the two most significant bits of
+  // the last character of the output. The length in there is
+  // 0..3, our actual value is 1..4 so we need to add 1.
+  const uint8_t *ref = (uint8_t*)bin2c_lookup_table_ + chr*4;
+  out[0] = ref[0];
+  out[1] = ref[1];
+  out[2] = ref[2];
+  out[3] = ref[3] & 0x3f;
+  return ((ref[3] & 0xc0) >> 6) + 1;
 }
 #endif
 
