@@ -81,7 +81,11 @@ previous_versions = \
 	be5110f32aca3fcaa8a45e738efc27ba310bd6b4:0001_initial \
 	fe09dd180121290f6eddbc2e981cc32295caa668:0002_manual_buffer \
 	3c9a344fbd321625f6c0a9c4639bfedbf7092cc7:0003_inline_octal \
-	2441ea27f836d44d7d3a9e2612ada202d080662d:0004_inline_isprint
+	2441ea27f836d44d7d3a9e2612ada202d080662d:0004_inline_isprint \
+	fab73316621efc556ac2e66ba0a3db49771c7a29:0005_lookup \
+	ad8689ec37d316e07687bde66f27abeec36d17d9:0006_branchless_length \
+	61bf0b40638d461935d4b1b05ea269e85abc104c:0006_lookup_length \
+	3a727fa92f746126ddf4bc53d892b81e6f02d6b2:0007_32bit_lookup_access
 
 previous_version_binaries = $(shell echo "$(previous_versions)" \
 	| tr ' ' '\n' \
