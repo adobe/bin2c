@@ -43,19 +43,29 @@ octal:
 
 #else
 inline size_t bin2c_single(uint8_t chr, char *out) {
-  /// Lookup table char -> escaped for C.
-  /// Each code is between one and 4 bytes
   extern const char bin2c_lookup_table_[];
 
   // NOTE: The length is in the two most significant bits of
   // the last character of the output. The length in there is
   // 0..3, our actual value is 1..4 so we need to add 1.
-  const uint8_t *ref = (uint8_t*)bin2c_lookup_table_ + chr*4;
-  out[0] = ref[0];
-  out[1] = ref[1];
-  out[2] = ref[2];
-  out[3] = ref[3] & 0x3f;
-  return ((ref[3] & 0xc0) >> 6) + 1;
+  // In order to store this mask in an endianess independent way
+  // we store it a byte array; in order to apply it efficiently
+  // we cast to an uint32_t so we can perform a one 4 byte instruction
+  // instead of multiple single byte instructions when copying into
+  // the output buffer.
+
+  /// Lookup table char -> escaped for C.
+  /// Each code is between one and 4 bytes and padded by zeroes.
+  const uint8_t *slot8 = ((uint8_t*)bin2c_lookup_table_) + chr*4;
+
+  // The bit mask for erasing the length information
+  uint8_t mask8[] = { 0xff, 0xff, 0xff, 0x3f };
+
+  // Copy the data from the lookup table and erase length info
+  *((uint32_t*)out) = *((uint32_t*)slot8) & *((uint32_t*)mask8);
+
+  // Extract length info from lookup
+  return ((slot8[3] & 0xc0) >> 6) + 1;
 }
 #endif
 
