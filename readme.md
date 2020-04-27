@@ -3,8 +3,12 @@
 bin2c can be used to embed binary & text files inside C binaries.
 
 It works by formatting the contents of the file in such a way that they
-can be used inside a C89 compliant C string (albeit one that is over the
+can be used inside a C89 compliant C string (albeit one that may be over the
 C90 maximumg string length of 509 bytes).
+
+This method of embedding binary data is highly portable and very fast (although
+not as fast as using the linker to generate an object file directly). It is fast enough
+to process even excessively large files (hundreds of MB) in two or three seconds.
 
 ## Setup
 
