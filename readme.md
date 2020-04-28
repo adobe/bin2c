@@ -189,7 +189,8 @@ int main(int argc, const char **argv) {
   char *op = out;
   bin2c(
     (const uint8_t**)(&ip), (const uint8_t*)(in + strlen(in)),
-    &op, out+sizeof(out));
+    // Out buffer, leaving space for terminating zero byte
+    &op, out+sizeof(out)-1);
 
   *op = '\0';
 
