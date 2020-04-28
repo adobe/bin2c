@@ -1,26 +1,46 @@
 #pragma once
-#include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <assert.h>
 
-#ifdef BIN2C_BOOTSTRAP
-inline size_t b2c_strcpy(char *from, char *to) {
-    char *pt = from;
-    for (; *pt != '\0'; pt++, to++) *to = *pt;
-    return pt - from;
+// This header comes in the following modes:
+// Normal header: Just declares bin2c.
+//  BIN2C_HEADER_ONLY=undefined BIN2C_INLINE=undefined BIN2C_OBJECT_FILE=undefined
+// Object file: This is basically as the implementation of libbin2c.c.
+//  This exports the bin2c symbol…
+//  BIN2C_OBJECT_FILE=1 BIN2C_INLINE=any BIN2C_HEADER_ONLY=any
+// Header Only
+//   This pulls in the slower header only/bootstrapping implementation as
+//   an inline function.
+//   BIN2C_HEADER_ONLY=1 BIN2C_OBJECT_FILE=undefined BIN2C_INLINE=any
+// Inline
+//   BIN2C_INLINE=any BIN2C_OBJECT_FILE=undefined BIN2C_HEADER_ONLY=undefined
+
+extern void bin2c(const uint8_t **in, const uint8_t *in_end, char **out, const char *out_end);
+
+// bin2c_single, header only and bootstrapping implementation.
+// This does not depend on a lookup table and so is used to generate the lookup table.
+// It is also used in the header only variant.
+#if defined(BIN2C_HEADER_ONLY) && !defined(BIN2C_OBJECT_FILE)
+
+inline size_t b2c_strcpy_(const char *from, char *to) {
+  // Using our own strcpy here so we can inline the code.
+  const char *pt = from;
+  for (; *pt != '\0'; pt++, to++) *to = *pt;
+  return pt - from;
 }
 
 inline size_t bin2c_single(uint8_t chr, char *out) {
   switch ((char)chr) {
-    case '\a': return b2c_strcpy("\\a", out);
-    case '\b': return b2c_strcpy("\\b", out);
-    case '\t': return b2c_strcpy("\\t", out);
-    case '\n': return b2c_strcpy("\\n\\\n", out);
-    case '\v': return b2c_strcpy("\\v", out);
-    case '\f': return b2c_strcpy("\\f", out);
-    case '\r': return b2c_strcpy("\\r", out);
-    case '\\': return b2c_strcpy("\\\\", out);
-    case '"':  return b2c_strcpy("\\\"", out);
+    case '\a': return b2c_strcpy_("\\a", out);
+    case '\b': return b2c_strcpy_("\\b", out);
+    case '\t': return b2c_strcpy_("\\t", out);
+    case '\n': return b2c_strcpy_("\\n\\\n", out);
+    case '\v': return b2c_strcpy_("\\v", out);
+    case '\f': return b2c_strcpy_("\\f", out);
+    case '\r': return b2c_strcpy_("\\r", out);
+    case '\\': return b2c_strcpy_("\\\\", out);
+    case '"':  return b2c_strcpy_("\\\"", out);
     case '$':
     case '@':
     case '?':
@@ -40,8 +60,10 @@ octal:
   out[3] = (chr >> 0 & 7) + '0';
   return 4;
 }
+#endif
 
-#else
+// bin2c_single inline/object file variant requiring a lookup table
+#if defined(BIN2C_OBJECT_FILE) || (defined(BIN2C_INLINE) && !defined(BIN2C_HEADER_ONLY))
 inline size_t bin2c_single(uint8_t chr, char *out) {
   extern const char bin2c_lookup_table_[];
 
@@ -69,10 +91,30 @@ inline size_t bin2c_single(uint8_t chr, char *out) {
 }
 #endif
 
-inline void bin2c(uint8_t **in, uint8_t *in_end, char **out, char *out_end) {
-  assert(out_end-*out >= 4);
+#if defined(BIN2C_OBJECT_FILE) || defined(BIN2C_INLINE) || defined(BIN2C_HEADER_ONLY)
+inline size_t b2c_memcpy_(const uint8_t *from, uint8_t *to, size_t cnt) {
+  // Using our own memcpy here so we can inline the code.
+  for (size_t ix=0; ix < cnt; ix++)
+    to[ix] = from[ix];
+  return cnt;
+}
+
+#if defined(BIN2C_INLINE) || defined(BIN2C_HEADER_ONLY)
+inline
+#endif
+void bin2c(const uint8_t **in, const uint8_t *in_end, char **out, const char *out_end) {
   // (hot loop) While data in inbuff & outbuf has 4 free slots
   // (bin2c needs four free slots)
   for (; *in < in_end && out_end-*out >= 4; (*in)++)
     *out += bin2c_single(**in, *out);
+
+  // Edge case handling (processing the last three bytes)
+  for (; *in < in_end; (*in)++) {
+    char buf[4];
+    int len = bin2c_single(**in, (char*)&buf);
+    int avail = out_end-*out;
+    if (len > avail) return;
+    *out += b2c_memcpy_((uint8_t*)buf, (uint8_t*)*out, len);
+  }
 }
+#endif

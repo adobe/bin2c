@@ -73,12 +73,10 @@ benchmark() {
       <"$tmp_entropy" just_bin2c > "$tmp_bin2c"
 
     local prev
-    if test -n "$BENCH_PREVIOUS_VERSIONS"; then
-      for prev in ./build/previous/*; do
-        bench bin2c-"$(basename "$prev")" \
-          <"$tmp_entropy" just_bin2c "$prev" > "$tmp_bin2c"
-      done
-    fi
+    for prev in ${BENCH_PREVIOUS_VERSIONS}; do
+      bench bin2c-"$(basename "$prev")" \
+        <"$tmp_entropy" just_bin2c "./build/previous/$prev" > "$tmp_bin2c"
+    done
 
     ###################
     # Benchmark compilation speed (data -> object file)
@@ -90,34 +88,34 @@ benchmark() {
     fi
 
     # Using a C compiler to produce the object
-    local CC
-    for CC in gcc clang; do
-      export CC
+    if test -z "$BENCH_NO_COMPILE"; then
+      local CC
+      for CC in gcc clang; do
+        export CC
 
-      if test -z "$BENCH_NO_XXD"; then
-        bench "xxd_${CC}_baseline" \
-          <"$tmp_xxd" compile_from cat >/dev/null
-      fi
+        if test -z "$BENCH_NO_XXD"; then
+          bench "xxd_${CC}_baseline" \
+            <"$tmp_xxd" compile_from cat >/dev/null
+        fi
 
-      bench "bin2c_${CC}_baseline" \
-        <"$tmp_bin2c" compile_from cat >/dev/null
+        bench "bin2c_${CC}_baseline" \
+          <"$tmp_bin2c" compile_from cat >/dev/null
 
-      if test -z "$BENCH_NO_XXD"; then
-        bench "xxd_${CC}" \
-          <"$tmp_entropy" compile_from just_xxd  >/dev/null
-      fi
+        if test -z "$BENCH_NO_XXD"; then
+          bench "xxd_${CC}" \
+            <"$tmp_entropy" compile_from just_xxd  >/dev/null
+        fi
 
-      bench "bin2c_${CC}" \
-        <"$tmp_entropy" compile_from just_bin2c >/dev/null
+        bench "bin2c_${CC}" \
+          <"$tmp_entropy" compile_from just_bin2c >/dev/null
 
 
-      if test -n "$BENCH_PREVIOUS_VERSIONS"; then
-        for prev in ./build/previous/*; do
+        for prev in ${BENCH_PREVIOUS_VERSIONS}; do
           bench "bin2c_${CC}_$(basename "$prev")" \
-            <"$tmp_entropy" compile_from just_bin2c "$prev" >/dev/null
+            <"$tmp_entropy" compile_from just_bin2c "./build/previous/$prev" >/dev/null
         done
-      fi
-    done
+      done
+    fi
   done
 }
 

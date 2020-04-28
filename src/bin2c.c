@@ -28,7 +28,7 @@ inline struct b2c_buf b2c_buf_create(FILE *stream, size_t len) {
 // fread but directly aborts execution on error when nothing was red.
 // Automatically resets the buffer pointer.
 // Behaviour is undefined if buffer is not entirely empty
-inline size_t b2c_fill(struct b2c_buf *buf) {
+size_t b2c_fill(struct b2c_buf *buf) {
   assert(buf->pt == buf->start || buf->pt == buf->end);
   size_t red = fread(buf->start, 1, buf->end - buf->start, buf->stream);
   if (red == 0 && ferror(buf->stream)) {
@@ -63,7 +63,7 @@ void b2c_puts(struct b2c_buf *buf, const char *str) {
   }
 }
 
-int help() {
+inline int help() {
   extern const char blob_help[];
   extern const size_t blob_help_len;
   fwrite(blob_help, 1, blob_help_len, stdout);
@@ -103,7 +103,7 @@ int main(int argc, const char **argv) {
   while (!feof(stdin) || (ib.pt != ib.start && ib.pt != ib.end)) {
     if (ib.pt == ib.start || ib.pt == ib.end) b2c_fill(&ib);
     b2c_flush(&ob);
-    bin2c((uint8_t**)&ib.pt, (uint8_t*)ib.end, &ob.pt, ob.end); // hot loop
+    bin2c((const uint8_t**)&ib.pt, (const uint8_t*)ib.end, &ob.pt, ob.end); // hot loop
   }
 
   if (var_name != NULL) {

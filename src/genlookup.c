@@ -9,7 +9,7 @@ int main() {
 
   for (int i=0x00; i <= 0xff; i++) {
     uint8_t in = i;
-    uint8_t *inpt = &in;
+    const uint8_t *inpt = &in;
     uint8_t *outp = &table[i*4];
     bin2c(&inpt, inpt+1, (char**)&outp, (char*)outp+4);
 

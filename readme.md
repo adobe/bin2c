@@ -143,6 +143,64 @@ file.
 
 Finally we compile the produced C code.
 
+## Library usage
+
+```C
+// Header: bin2c.h, Lib: libbin2c.a
+
+/// If this is defined, the bin2c function will included as an inline
+/// function.
+#define BIN2C_INLINE 1
+
+/// If this is defined, bin2c can be used a header-only library.
+/// Note that this enables an alternate, slower algorithm not based
+/// on a lookup table.
+#define BIN2C_HEADER_ONLY 1
+
+/// Escape binary data
+void bin2c(
+  const uint8_t **in, const uint8_t *in_end,
+  char **out, const char *out_end);
+```
+
+The bin2c function reads binary data from `[*in; in_end)`, escapes the
+data and writes the resuling string to `[*out; out_end)`.
+The function writes as many bytes as possible without overflowing either
+in or out buffers. If necessary, the output will be truncated.
+
+`in`/`out` are incremented to indicate the number of bytes red/written.
+
+### Example
+
+```C
+// cc -c example.c -o example.o -I"${PWD}/src/"
+// cc example.o build/libbin2c.a -o example
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+#include <bin2c.h>
+#include <stdio.h>
+
+int main(int argc, const char **argv) {
+  const char *in = argc > 1 ? argv[1] : "Hello World";
+  char out[6];
+
+  const char *ip = in;
+  char *op = out;
+  bin2c(
+    (const uint8_t**)(&ip), (const uint8_t*)(in + strlen(in)),
+    &op, out+sizeof(out));
+
+  *op = '\0';
+
+  printf("Converted `%s` to `%s`. Red %i bytes and wrote %i chars.%s\n",
+    in, out, ip-in, op-out,
+    (ip-in < strlen(in) ? " String was truncated." : ""));
+
+  return 0;
+}
+```
+
 ## Comparison to other tools
 
 The most common way of including a file in C is using xxd:
