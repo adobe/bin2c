@@ -16,21 +16,23 @@
 // Inline
 //   BIN2C_INLINE=any BIN2C_OBJECT_FILE=undefined BIN2C_HEADER_ONLY=undefined
 
+#if !defined(BIN2C_INLINE) && !defined(BIN2C_HEADER_ONLY) && !defined(BIN2C_OBJECT_FILE)
 extern void bin2c(const uint8_t **in, const uint8_t *in_end, char **out, const char *out_end);
+#endif
 
 // bin2c_single, header only and bootstrapping implementation.
 // This does not depend on a lookup table and so is used to generate the lookup table.
 // It is also used in the header only variant.
 #if defined(BIN2C_HEADER_ONLY) && !defined(BIN2C_OBJECT_FILE)
 
-inline size_t b2c_strcpy_(const char *from, char *to) {
+static inline size_t b2c_strcpy_(const char *from, char *to) {
   // Using our own strcpy here so we can inline the code.
   const char *pt = from;
   for (; *pt != '\0'; pt++, to++) *to = *pt;
   return pt - from;
 }
 
-inline size_t bin2c_single(uint8_t chr, char *out) {
+static inline size_t bin2c_single(uint8_t chr, char *out) {
   switch ((char)chr) {
     case '\a': return b2c_strcpy_("\\a", out);
     case '\b': return b2c_strcpy_("\\b", out);
@@ -64,7 +66,7 @@ octal:
 
 // bin2c_single inline/object file variant requiring a lookup table
 #if defined(BIN2C_OBJECT_FILE) || (defined(BIN2C_INLINE) && !defined(BIN2C_HEADER_ONLY))
-inline size_t bin2c_single(uint8_t chr, char *out) {
+static inline size_t bin2c_single(uint8_t chr, char *out) {
   extern const char bin2c_lookup_table_[];
 
   // NOTE: The length is in the two most significant bits of
@@ -92,7 +94,7 @@ inline size_t bin2c_single(uint8_t chr, char *out) {
 #endif
 
 #if defined(BIN2C_OBJECT_FILE) || defined(BIN2C_INLINE) || defined(BIN2C_HEADER_ONLY)
-inline size_t b2c_memcpy_(const uint8_t *from, uint8_t *to, size_t cnt) {
+static inline size_t b2c_memcpy_(const uint8_t *from, uint8_t *to, size_t cnt) {
   // Using our own memcpy here so we can inline the code.
   for (size_t ix=0; ix < cnt; ix++)
     to[ix] = from[ix];
@@ -100,7 +102,7 @@ inline size_t b2c_memcpy_(const uint8_t *from, uint8_t *to, size_t cnt) {
 }
 
 #if defined(BIN2C_INLINE) || defined(BIN2C_HEADER_ONLY)
-inline
+static inline
 #endif
 void bin2c(const uint8_t **in, const uint8_t *in_end, char **out, const char *out_end) {
   // (hot loop) While data in inbuff & outbuf has 4 free slots

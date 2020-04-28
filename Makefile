@@ -1,6 +1,6 @@
 prefix ?= /usr/local
 
-CFLAGS ?= -O3
+CFLAGS ?= -O3 -fgnu89-inline
 CFLAGS += -Wall -Wextra -Wpedantic -std=c11
 CPPFLAGS += -I"$(PWD)/src"
 
@@ -105,7 +105,7 @@ test_lib_inline: build/test_inline
 build/test_inline: build/test_inline.o build/libbin2c.a
 	$(mkbuild)
 	$(link_c)
-build/test_inline.o: CPPFLAGS+=-DBIN2C_HEADER_ONLY=1
+build/test_inline.o: CPPFLAGS+=-DBIN2C_INLINE_ONLY=1
 build/test_inline.o: test/test.c
 	$(mkbuild)
 	$(compile_c) $< -o $@
@@ -170,4 +170,4 @@ build/previous/%/build/bin2c:
 			| awk -F : -v name="$*" '$$2 == name { print($$1) }'))
 	mkdir -p "$(dir $@)/.."
 	git archive "$(prev_revision)" | tar -C "$(dir $@)/.." -x
-	$(MAKE) -C "$(dir $@)/.."
+	$(MAKE) -C "$(dir $@)/.." CFLAGS="-O3 -fgnu89-inline"

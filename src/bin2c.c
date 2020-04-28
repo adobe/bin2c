@@ -17,7 +17,7 @@ struct b2c_buf {
   char *start, *end, *pt;
 };
 
-inline struct b2c_buf b2c_buf_create(FILE *stream, size_t len) {
+struct b2c_buf b2c_buf_create(FILE *stream, size_t len) {
   struct b2c_buf r;
   r.stream = stream;
   r.start = r.pt = (char*)malloc(len);
@@ -63,7 +63,7 @@ void b2c_puts(struct b2c_buf *buf, const char *str) {
   }
 }
 
-inline int help() {
+int help() {
   extern const char blob_help[];
   extern const size_t blob_help_len;
   fwrite(blob_help, 1, blob_help_len, stdout);
