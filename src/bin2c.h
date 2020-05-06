@@ -106,13 +106,6 @@ static inline size_t bin2c_single(uint8_t chr, char *out) {
 #endif
 
 #if defined(BIN2C_OBJECT_FILE) || defined(BIN2C_INLINE) || defined(BIN2C_HEADER_ONLY)
-static inline size_t b2c_memcpy_(const uint8_t *from, uint8_t *to, size_t cnt) {
-  // Using our own memcpy here so we can inline the code.
-  for (size_t ix=0; ix < cnt; ix++)
-    to[ix] = from[ix];
-  return cnt;
-}
-
 #if defined(BIN2C_INLINE) || defined(BIN2C_HEADER_ONLY)
 static inline
 #endif
@@ -128,7 +121,8 @@ void bin2c(const uint8_t **in, const uint8_t *in_end, char **out, const char *ou
     int len = bin2c_single(**in, (char*)&buf);
     int avail = out_end-*out;
     if (len > avail) return;
-    *out += b2c_memcpy_((uint8_t*)buf, (uint8_t*)*out, len);
+    memcpy(*out, buf, len);
+    *out += len;
   }
 }
 #endif
