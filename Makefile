@@ -131,7 +131,9 @@ previous_versions = \
 	fab73316621efc556ac2e66ba0a3db49771c7a29:0005_lookup \
 	ad8689ec37d316e07687bde66f27abeec36d17d9:0006_branchless_length \
 	61bf0b40638d461935d4b1b05ea269e85abc104c:0007_lookup_length \
-	3a727fa92f746126ddf4bc53d892b81e6f02d6b2:0008_32bit_lookup_access
+	3a727fa92f746126ddf4bc53d892b81e6f02d6b2:0008_32bit_lookup_access \
+	87d35efdf565cd6a9e9b3222fd7ed8069a85f533:0009_fix_unaligned \
+	e4a40660a280a060441f3e5086ca16b82ea8cd2b:000a_discard_b2c_memcpy
 
 previous_version_names = $(shell echo "$(previous_versions)" \
 	| tr ' ' '\n' \
