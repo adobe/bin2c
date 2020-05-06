@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 // This header comes in the following modes:
 // Normal header: Just declares bin2c.
@@ -25,24 +26,19 @@ extern void bin2c(const uint8_t **in, const uint8_t *in_end, char **out, const c
 // It is also used in the header only variant.
 #if defined(BIN2C_HEADER_ONLY) && !defined(BIN2C_OBJECT_FILE)
 
-static inline size_t b2c_strcpy_(const char *from, char *to) {
-  // Using our own strcpy here so we can inline the code.
-  const char *pt = from;
-  for (; *pt != '\0'; pt++, to++) *to = *pt;
-  return pt - from;
-}
-
 static inline size_t bin2c_single(uint8_t chr, char *out) {
   switch ((char)chr) {
-    case '\a': return b2c_strcpy_("\\a", out);
-    case '\b': return b2c_strcpy_("\\b", out);
-    case '\t': return b2c_strcpy_("\\t", out);
-    case '\n': return b2c_strcpy_("\\n\\\n", out);
-    case '\v': return b2c_strcpy_("\\v", out);
-    case '\f': return b2c_strcpy_("\\f", out);
-    case '\r': return b2c_strcpy_("\\r", out);
-    case '\\': return b2c_strcpy_("\\\\", out);
-    case '"':  return b2c_strcpy_("\\\"", out);
+#define B2C_ESCAPE_MAP(chr, escape) \
+    case chr : memcpy(out, escape, strlen(escape)); return strlen(escape);
+    B2C_ESCAPE_MAP('\a', "\\a");
+    B2C_ESCAPE_MAP('\b', "\\b");
+    B2C_ESCAPE_MAP('\t', "\\t");
+    B2C_ESCAPE_MAP('\v', "\\v");
+    B2C_ESCAPE_MAP('\f', "\\f");
+    B2C_ESCAPE_MAP('\r', "\\r");
+    B2C_ESCAPE_MAP('\\', "\\\\");
+    B2C_ESCAPE_MAP('\n', "\\n\\\n");
+    B2C_ESCAPE_MAP('"',  "\\\"");
     case '$':
     case '@':
     case '?':
@@ -82,11 +78,27 @@ static inline size_t bin2c_single(uint8_t chr, char *out) {
   /// Each code is between one and 4 bytes and padded by zeroes.
   const uint8_t *slot8 = ((uint8_t*)bin2c_lookup_table_) + chr*4;
 
-  // The bit mask for erasing the length information
+  // The bit mask for erasing the length information; stored as a byte
+  // array instead of a uint32_t literal to avoid endianess issues
   uint8_t mask8[] = { 0xff, 0xff, 0xff, 0x3f };
 
   // Copy the data from the lookup table and erase length info
-  *((uint32_t*)out) = *((uint32_t*)slot8) & *((uint32_t*)mask8);
+  // This really is just `out = slot & mask;`.
+  // Both casting to a packed struct and using memcpy are ways to express
+  // unaligned 32 bit pointer access; this is faster than doing the copying
+  // byte by byte on x86_64
+#ifdef __GNUC__
+  struct __attribute__((__packed__)) uint32_noalign {
+    uint32_t v;
+  };
+  ((struct uint32_noalign*)out)->v = ((struct uint32_noalign*)slot8)->v & ((struct uint32_noalign*)mask8)->v;
+#else
+  uint32_t mask32, slot32;
+  memcpy(&mask32, mask8, 4);
+  memcpy(&slot32, slot8, 4);
+  slot32 &= mask32;
+  memcpy(out, &slot32, 4);
+#endif
 
   // Extract length info from lookup
   return ((slot8[3] & 0xc0) >> 6) + 1;
