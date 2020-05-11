@@ -125,7 +125,7 @@ build/test_linked.o: test/test.c
 
 previous_versions = \
 	be5110f32aca3fcaa8a45e738efc27ba310bd6b4:0001_initial \
-	fe09dd180121290f6eddbc2e981cc32295caa668:0002_manual_buffer \
+	6ee7a6a3c6d6ab2eaad16dd1f88e432af9a14f99:0002_manual_buffer \
 	3c9a344fbd321625f6c0a9c4639bfedbf7092cc7:0003_inline_octal \
 	2441ea27f836d44d7d3a9e2612ada202d080662d:0004_inline_isprint \
 	fab73316621efc556ac2e66ba0a3db49771c7a29:0005_lookup \
