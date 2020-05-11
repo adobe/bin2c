@@ -1,5 +1,13 @@
 #! /bin/bash
 
+canonicalpath() {
+  if test -d "$1"; then
+    echo "$(cd "$1"; pwd)"
+  else
+    echo "$(canonicalpath "$(dirname "$1")")/$(basename "$1")"
+  fi
+}
+
 # Produce a compilable C source file with xxd
 # containing the data from stdin
 just_xxd() {
@@ -36,8 +44,23 @@ bench() {
 
   echo -n >&2 "Benchmark $impl..."
 
-  perf stat -o "$tmpdir/stat" bash "$exe" "$@"
-  local tim="$(< "$tmpdir/stat" awk '/seconds time elapsed/ { print($1); }')"
+  # This is a bit convoluted: First we open two new file descriptors
+  # 3 and 4, forwarding them to stdout, stderr. We use this so we can
+  # bypass variable capture in the timing command by forwarding to fd 3/4.
+  # The forward from stderr to stdout just makes sure that the result of
+  # the time command is captured.
+  # The TIMEFORMAT="%3R" instructs the time bash built in to just output
+  # the elapsed time with millisecond precision.
+  # The @Q is a bash feature that escapes variables in such a way that
+  # they can be pasted into a command without spaces or quotes being
+  # a problem.
+  #
+  # WHat this really solves is recoding the time a program takes to execute
+  # in milliseconds without somehow garbling stdout stderror from the perspective
+  # of the bench() caller.
+  exec 3>&1;
+  exec 4>&2;
+  local tim="$(bash -c "export TIMEFORMAT='%3R'; time (bash ${exe@Q} ${*@Q} 1>&3 2>&4)" 2>&1 )"
 
   echo >&2 "$tim"
 
@@ -83,8 +106,10 @@ benchmark() {
 
     # Using ld to produce the object
     if test -z "$BENCH_NO_LD"; then
-      bench compile_ld \
-        ld -r -b binary "$tmp_entropy" -o "$tmp_out"
+      if [[ "$OSTYPE" != "darwin"* ]]; then
+        bench compile_ld \
+          ld -r -b binary "$tmp_entropy" -o "$tmp_out"
+      fi
     fi
 
     # Using a C compiler to produce the object
@@ -159,7 +184,7 @@ bin2c_clean() {
 }
 
 bin2c_init() {
-  exe="$(readlink -f "$0")"
+  exe="$(canonicalpath "$0")"
   cd "$(dirname "$0")"
 
   # exit from loop

@@ -6,7 +6,7 @@ FAILURE="1"
 
 cmd_lookup() {
   type "$@" 2>/dev/null \
-    | awk '/^\w/ {
+    | awk '/^[a-zA-Z_]/ {
         if ($0 ~ /is a (function|shell builtin)/) {
           print($1);
         } else if ($0 ~ /is \//) {
@@ -31,9 +31,9 @@ my_uuidgen() {
 }
 
 hashfile() {
-  if [[ "$cmd_hash" = rhash ]]; then
+  if [[ "$cmd_hash" = */rhash ]]; then
     rhash --sha512 "$@" | awk '{ print($1) }'
-  elif [[ "$cmd_hash" = openssl ]]; then
+  elif [[ "$cmd_hash" = */openssl ]]; then
     openssl sha512 "$@" | awk '{ print($2) }'
   else
     "$cmd_hash" "$@" | awk '{ print($1) }'
