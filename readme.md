@@ -10,6 +10,21 @@ This method of embedding binary data is highly portable and very fast (although
 not as fast as using the linker to generate an object file directly). It is fast enough
 to process even excessively large files (hundreds of MB) in two or three seconds.
 
+## Requirements
+
+For the header only version:
+
+* A C11 compatible compiler
+
+To compile the library:
+
+* A GCC, C11 compatible compiler (compatibility with MSVC would require a custom build config)
+* GNU Make
+
+To run tests and benchmarks:
+
+* Bash 4 or newer (install with Brew under OSX)
+
 ## Setup
 
 Compile and run:
