@@ -1,6 +1,6 @@
 prefix ?= /usr/local
 
-CFLAGS ?= -O3 -fgnu89-inline
+CFLAGS ?= -O3
 CFLAGS += -Wall -Wextra -Wpedantic -std=c11
 CPPFLAGS += -I"$(PWD)/src"
 
