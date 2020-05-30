@@ -24,6 +24,10 @@ build/bin2c: build/bin2c.o build/help.o build/lookuptable.o
 	$(mkbuild)
 	$(link_c)
 
+build/bin2c_stdio: build/bin2c_stdio.o build/help.o build/lookuptable.o
+	$(mkbuild)
+	$(link_c)
+
 build/libbin2c.a: build/libbin2c.o build/lookuptable.o
 	$(AR) rcs $@ $^
 
@@ -47,9 +51,16 @@ build/%.o: src/%.c
 	$(mkbuild)
 	$(compile_c) $< -o $@
 
-build/bin2c.o: CPPFLAGS+=-DBIN2C_INLINE=1
+build/bin2c.o build/bin2c_stdio.o: CPPFLAGS+=-DBIN2C_INLINE=1
+build/bin2c_stdio.o: CPPFLAGS+=-DBIN2C_FORCE_STDIO=1
 build/genlookup.o build/bin2c_bootstrap.o: CPPFLAGS+=-DBIN2C_HEADER_ONLY=1
-build/genlookup.o build/bin2c_bootstrap.o build/bin2c.o: src/bin2c.h
+build/genlookup.o build/bin2c_bootstrap.o build/bin2c_stdio.o build/bin2c.o: src/bin2c.h
+
+build/bin2c_stdio.o: src/bin2c.c
+	$(mkbuild)
+	$(compile_c) $< -o $@
+
+
 build/bin2c_bootstrap.o: src/bin2c.c
 	$(mkbuild)
 	$(compile_c) $< -o $@
@@ -77,15 +88,18 @@ clean:
 
 # Testing
 
-.PHONY: test test_bin2c test_bootstrap test_lib
+.PHONY: test test_bin2c test_stdio test_bootstrap test_lib
 .PHONY: test_lib_headeronly test_lib_inline test_lib_linked
 
-test: test_lib test_bin2c test_bootstrap
+test: test_lib test_bin2c test_stdio test_bootstrap
 
 test_bin2c: build/bin2c build/genbytes build/print_myfile.o
 	bash ./test.sh "$<"
 
 test_bootstrap: build/bin2c_bootstrap build/genbytes build/print_myfile.o
+	bash ./test.sh "$<"
+
+test_stdio: build/bin2c_stdio build/genbytes build/print_myfile.o
 	bash ./test.sh "$<"
 
 test_lib: test_lib_headeronly test_lib_inline test_lib_linked
