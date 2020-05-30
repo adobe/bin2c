@@ -8,18 +8,28 @@
 #include <string.h>
 #include <locale.h>
 #include <assert.h>
+#include <unistd.h>
 
 #include "bin2c.h"
 
+// Freebsd apparently behaves weirdly with unbuffered stdio…
+// https://www.reddit.com/r/C_Programming/comments/gsxvh3/how_to_analyze_assembly_code_to_guide/fs8yyst/
+#if (defined(__unix__) && !defined(BIN2C_FORCE_STDIO)) || defined(BIN2C_FORCE_FD_IO)
+#include "bin2c_fdio.h"
+#else
+#include "bin2c_stdio.h"
+#endif
+
 struct b2c_buf {
-  FILE *stream;
+  b2c_file fd;
   // Start pointer, end pointer, fill level
   char *start, *end, *pt;
 };
 
-struct b2c_buf b2c_buf_create(FILE *stream, size_t len) {
+struct b2c_buf b2c_buf_create(b2c_file fd, size_t len) {
+  b2c_io_set_unbuffered(fd);
   struct b2c_buf r;
-  r.stream = stream;
+  r.fd = fd;
   r.start = r.pt = (char*)malloc(len);
   r.end = r.start + len;
   return r;
@@ -29,14 +39,16 @@ struct b2c_buf b2c_buf_create(FILE *stream, size_t len) {
 // Automatically resets the buffer pointer.
 // Behaviour is undefined if buffer is not entirely empty
 size_t b2c_fill(struct b2c_buf *buf) {
+  // PT is the read pointer for the input buffer, so we cannot use
+  // it to indicate data size (end indicates allocation size).
+  // We could however move any remaining data to the start of the buffer,
+  // but it's not really worth it……
   assert(buf->pt == buf->start || buf->pt == buf->end);
-  size_t red = fread(buf->start, 1, buf->end - buf->start, buf->stream);
-  if (red == 0 && ferror(buf->stream)) {
-    fprintf(stderr, "Error reading data: %s\n", strerror(errno));
-    abort();
-  }
+
+  size_t red = b2c_io_read(buf->fd, buf->start, buf->end);
+
   buf->pt = buf->end - red;
-  if (buf->pt != buf->start) // read was shorter than buffer
+  if (buf->pt != buf->start) // read was shorter than buffer, move data to end
     memmove(buf->pt, buf->start, red);
   return red;
 }
@@ -44,11 +56,7 @@ size_t b2c_fill(struct b2c_buf *buf) {
 // fwrite but directly aborts execution on error or EOF.
 // Automatically resets the buffer pointer.
 void b2c_flush(struct b2c_buf *buf) {
-  size_t cnt = buf->pt - buf->start;
-  if (fwrite(buf->start, 1, cnt, buf->stream) != cnt) {
-    fprintf(stderr, "Error writing data: %s\n", strerror(errno));
-    abort();
-  }
+  b2c_io_write(buf->fd, buf->start, buf->pt);
   buf->pt = buf->start;
 }
 
@@ -87,11 +95,8 @@ int main(int argc, const char **argv) {
   }
 
   setlocale(LC_ALL, "C");
-  setvbuf(stdin, NULL, _IONBF, 0);
-  setvbuf(stdout, NULL, _IONBF, 0);
-
-  struct b2c_buf ib = b2c_buf_create(stdin, 8129);
-  struct b2c_buf ob = b2c_buf_create(stdout, 8129);
+  struct b2c_buf ib = b2c_buf_create(b2c_io_stdin(), 8129);
+  struct b2c_buf ob = b2c_buf_create(b2c_io_stdout(), 8129);
 
   if (var_name != NULL) {
     b2c_puts(&ob, "#include <stdlib.h>\n");
@@ -100,9 +105,13 @@ int main(int argc, const char **argv) {
     b2c_puts(&ob, "[] = \"\\\n");
   }
 
-  while (!feof(stdin) || (ib.pt != ib.start && ib.pt != ib.end)) {
-    if (ib.pt == ib.start || ib.pt == ib.end) b2c_fill(&ib);
+  while (true) {
     b2c_flush(&ob);
+    if (ib.pt == ib.start || ib.pt == ib.end) { // read buf must be empty
+      if (b2c_fill(&ib) == 0) {
+        break; // EOF
+      }
+    }
     bin2c((const uint8_t**)&ib.pt, (const uint8_t*)ib.end, &ob.pt, ob.end); // hot loop
   }
 
